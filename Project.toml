@@ -3,6 +3,9 @@ uuid = "323479a5-815d-4b55-985b-03ece6241139"
 authors = ["John Waczak <john.louis.waczak@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+Catalyst = "479239e8-5488-4da2-87a7-35f2df7eef83"
+
 [compat]
 julia = "1.7"
 

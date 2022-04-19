@@ -9,7 +9,9 @@ using Test
     @variables t, A(t), B(t), C(t)
 
     test_file = "./test.kpp"
+    isfile(test_file)
     out_file = "./test.jl"
+
 
     rxns, species_list = extract_mechanism(test_file)
     mechanism_to_catalyst(rxns, species_list, out_file, "test_rn")

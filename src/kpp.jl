@@ -15,6 +15,9 @@ function convert_rate_mcm(rate_string::String)
     map_dict = Dict("D-"=>"E-",
                     "D+"=>"E+",
                     "**"=>"^",
+                    "D10"=>"E+10",
+                    "D11"=>"E+11",
+                    "D12"=>"E+12",
                     )
     # loop through dictionaries and replace functions with Julia equivalents
 
@@ -29,12 +32,16 @@ function convert_rate_mcm(rate_string::String)
 
     # replace J(...) with J[...]
     if occursin("J", rate_string)
-        idx = findfirst("J(", rate_string)
-        idx_lparens = idx[2]
-        idx_rparens = idx_lparens +(findfirst(")", rate_string[idx_lparens:end])[1]-1)
+        idxs = findall("J(", rate_string)
         rate_array = collect(rate_string)
-        rate_array[idx_lparens] = '['
-        rate_array[idx_rparens] = ']'
+
+        for idx ∈ idxs
+            idx_lparens = idx[2]
+            idx_rparens = idx_lparens +(findfirst(")", rate_string[idx_lparens:end])[1]-1)
+            rate_array[idx_lparens] = '['
+            rate_array[idx_rparens] = ']'
+        end
+
         rate_string = join(rate_array)
     end
 
@@ -58,86 +65,92 @@ function extract_mechanism(filename::String)
     lines = readlines(filename)
 
     # find index of line that specifies equations
-    idx = last(findall(x->occursin(x, "#EQUATIONS"), lines))
+    idx = last(findall(x->occursin("#EQUATIONS", x), lines))
+
 
     # loop through reactions and generate tuples of (eq#, equations, rate)
     species_list = []  # we will want this for generating the variables
     rxns = []
     for i ∈(idx+1):length(lines)
+        # check if we have an equation
+        if collect(lines[i])[1] == '{'
 
-        # 1. split into reaction part and rate part
-        rxn_line, rate_line = split(lines[i], ":")
+            # 1. split into reaction part and rate part
+            line = replace(lines[i], "\t"=>" ")
+            rxn_line, rate_line = split(line, ":")
 
-        # 2. split reaction into the eq# and eq
-        eqnum, eqn = split(rxn_line, "}")
-        eqnum = parse(Int, eqnum[2:end-1]) # drop { and .
+            # 2. split reaction into the eq# and eq
+            eqnum, eqn = split(rxn_line, "}")
+            eqnum = parse(Int, eqnum[2:end-1]) # drop { and .
 
-        # 3. grab the rate equation
-        rate = split(rate_line, ";")[1]
-        rate = replace(rate, " "=>"")
-        rate = convert_rate_mcm(rate)
+            # 3. grab the rate equation
+            rate = split(rate_line, ";")[1]
+            rate = replace(rate, " "=>"")
+            rate = convert_rate_mcm(rate)
 
-        # 4. split eqn into reactants and products
-        reactant_string, product_string = split(eqn, "=")
+            # 4. split eqn into reactants and products
+            reactant_string, product_string = split(eqn, "=")
 
-        # 5. generate reactants list
-        reactant_string = replace(reactant_string, " "=>"")
+            # 5. generate reactants list
+            reactant_string = replace(reactant_string, " "=>"")
 
 
-        reactants = []
-        reactants_stoich = []
-        reactant_list = split(reactant_string, "+")
-        if reactant_string == ""
-            push!(reactants, nothing)
-            push!(reactants_stoich, 1.0)
-        else
-            for reactant ∈ reactant_list
-                idx = findfirst(isletter.(collect(reactant)))
-                if idx == 1
-                    stoich = 1.0
-                    species = reactant
-                else
-                    stoich = parse(Float32, reactant[1:idx-1])
-                    species = reactant[idx:end]
+            reactants = []
+            reactants_stoich = []
+            reactant_list = split(reactant_string, "+")
+            if reactant_string == ""
+                push!(reactants, nothing)
+                push!(reactants_stoich, 1.0)
+            else
+                for reactant ∈ reactant_list
+                    idx = findfirst(isletter.(collect(reactant)))
+                    if idx == 1
+                        stoich = 1.0
+                        species = reactant
+                    else
+                        stoich = parse(Float32, reactant[1:idx-1])
+                        species = reactant[idx:end]
+                    end
+
+                    push!(reactants, species)
+                    push!(reactants_stoich, stoich)
                 end
-
-                push!(reactants, species)
-                push!(reactants_stoich, stoich)
             end
-        end
 
-        # 6. generate products list
-        product_string = replace(product_string, " "=>"")
+            # 6. generate products list
+            product_string = replace(product_string, " "=>"")
 
 
-        products = []
-        products_stoich = []
-        product_list = split(product_string, "+")
-        if product_string == ""
-            push!(products, nothing)
-            push!(products_stoich, 1.0)
-        else
-            for product ∈ product_list
-                idx = findfirst(isletter.(collect(product)))
-                if idx == 1
-                    stoich = 1.0
-                    species = product
-                else
-                    stoich = parse(Float32, product[1:idx-1])
-                    species = product[idx:end]
+            products = []
+            products_stoich = []
+            product_list = split(product_string, "+")
+            if product_string == ""
+                push!(products, nothing)
+                push!(products_stoich, 1.0)
+            else
+                for product ∈ product_list
+                    idx = findfirst(isletter.(collect(product)))
+                    if idx == 1
+                        stoich = 1.0
+                        species = product
+                    else
+                        stoich = parse(Float32, product[1:idx-1])
+                        species = product[idx:end]
+                    end
+
+
+                    push!(products, species)
+                    push!(products_stoich, stoich)
                 end
-
-
-                push!(products, species)
-                push!(products_stoich, stoich)
             end
+
+
+            push!(species_list, reactants)
+            push!(species_list, products)
+
+            push!(rxns, (eqnum, reactants, reactants_stoich, products, products_stoich, rate))
+
         end
-
-
-        push!(species_list, reactants)
-        push!(species_list, products)
-
-        push!(rxns, (eqnum, reactants, reactants_stoich, products, products_stoich, rate))
     end
 
     # trim up the species list and return unique elements
@@ -158,26 +171,38 @@ Evaluate the MCM reaction rate using simulation parameters.
 """
 function evaluate_rate(rate::String)
 
-    # println(rate)
+    # instead, we first sort keys by longest to shortest
+    mykeys = collect(keys(config))
 
-    # do everything and then do M last
-    for (key, val) ∈ config
-        if key != "M"
-            if occursin(key, rate)
-                rate = replace(rate, key=>string(val))
-                # println("\t", key, "\t", rate)
-            end
+    lengths = [length(key) for key ∈ mykeys]
+    perm = sortperm(lengths, rev=true)
+
+    mykeys = mykeys[perm]
+
+    for key ∈ mykeys
+        if occursin(key , rate)
+            rate = replace(rate, key => string(config[key]))
         end
     end
 
-    if occursin("M", rate)
-        rate = replace(rate, "M"=>string(config["M"]))
-        # println("\t", "M", "\t", rate)
 
-    end
+    # # do everything and then do M last
+    # for (key, val) ∈ config
+    #     if key != "M"
+    #         if occursin(key, rate)
+    #             rate = replace(rate, key=>string(val))
+    #             # println("\t", key, "\t", rate)
+    #         end
+    #     end
+    # end
 
-    # println("\tFINISHED")
+    # if occursin("M", rate)
+    #     rate = replace(rate, "M"=>string(config["M"]))
+    #     # println("\t", "M", "\t", rate)
 
+    # end
+
+    # # println("\tFINISHED")
     res = eval(Meta.parse(rate))
     # println("\t", res)
 
@@ -194,8 +219,6 @@ Take the output of extract_mechanism() and generate a julia file called out_file
 
 """
 function mechanism_to_catalyst(rxns, species_list, out_file::String, rn_name::String)
-    println(out_file)
-
     open(out_file, "w") do f
         write(f, "using Catalyst\n\n")
 
@@ -215,7 +238,9 @@ function mechanism_to_catalyst(rxns, species_list, out_file::String, rn_name::St
 
         # loop through reactions and add them
         for rxn ∈ rxns
+
             num, reactants, reactants_stoich, products, products_stoich, rate = rxn
+
 
             # replace nothing with ∅
             replace!(reactants, nothing => "∅")

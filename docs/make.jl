@@ -6,11 +6,11 @@ DocMeta.setdocmeta!(MCM, :DocTestSetup, :(using MCM); recursive=true)
 makedocs(;
     modules=[MCM],
     authors="John Waczak <john.louis.waczak@gmail.com>",
-    repo="https://github.com/john-waczak/MCM.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/mi3nts/MCM.jl/blob/{commit}{path}#{line}",
     sitename="MCM.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://john-waczak.github.io/MCM.jl",
+        canonical="https://mi3nts.github.io/MCM.jl",
         assets=String[],
     ),
     pages=[
@@ -19,6 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/john-waczak/MCM.jl",
+    repo="github.com/mi3nts/MCM.jl",
     devbranch="main",
 )

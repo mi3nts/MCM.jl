@@ -27,6 +27,6 @@ include(out_file)
 # 4. Visualize
 g = Graph(test_rn)
 display(g)
-savegraph(g, "./output/mcm_3-2_complete.png")
+# savegraph(g, "./output/mcm_3-2_complete.png")
 
 

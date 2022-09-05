@@ -1,43 +1,31 @@
 using MCM
-using Catalyst
 using Test
+using Unitful
+using Dates
 
+# @testset "MCM Parsing" begin
+# end
 
+@testset "photolysis.jl" begin
+    @test MCM.J.L[1] ==  6.073e-5
+    @test MCM.J.M[1] ==  1.743
+    @test MCM.J.N[1] ==  0.474
 
-
-@testset "MCM Parsing" begin
-    @variables t, A(t), B(t), C(t)
-
-    test_file = "./test.kpp"
-    isfile(test_file)
-    out_file = "./test.jl"
-
-
-    rxns, species_list = extract_mechanism(test_file)
-    mechanism_to_catalyst(rxns, species_list, out_file, "test_rn")
-
-    include(out_file)
-
-    rn_test = @reaction_network begin
-        1.0, A + B → C
-    end
-
-    rx_a = reactions(test_rn)
-    a_rx = reactions(rn_test)
-
-    @test rx_a == a_rx
-
-
-
-
-
+    @test size(MCM.J.L) == (34,)
+    @test size(MCM.J.M) == (34,)
+    @test size(MCM.J.N) == (34,)
 end
 
 
+sim = SimulationConfig("test.txt",
+                        25.0*u"°C",
+                        0.5,
+                        DateTime(2022, 9, 5, 12, 0, 0),
+                        DateTime(2022, 9, 5, 16, 0, 0),
+                        10.0*u"1/cm^3",
+                        22.5*u"°",
+                        95.3*u"°",
+                        )
 
-
-
-
-# @testset "MCM.jl" begin
-#     # Write your tests here.
-# end
+println(sim)
+println(sim.temp)

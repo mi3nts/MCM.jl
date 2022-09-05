@@ -1,0 +1,688 @@
+********************************************************************* ;
+* A citation to the MCM website and the relevant mechanism          * ;
+* construction protocols should be given in any publication using   * ;
+* information obtained from this source, using the following or     * ;
+* comparable wording:                                               * ;
+* The chemical mechanistic information was taken from the Master    * ;
+* Chemical Mechanism, MCM v3.3.1 (ref), via website:                  * ;
+* http://mcm.leeds.ac.uk/MCM.                                       * ;
+* The reference should be: (Jenkin et al., Atmos. Environ., 31, 81, * ;
+* 1997; Saunders et al., Atmos. Chem. Phys., 3, 161, 2003), for     * ;
+* non aromatic schemes;(Jenkin et al., Atmos. Chem. Phys., 3,  * ;
+* 181, 2003; Bloss et al., Atmos. Chem. Phys., 5, 641, 2005), for   * ;
+* aromatic schemes;  (Jenkin et al., Atmos. Chem. Phys.,  12, * ;
+* 5275, 2012), for the beta-caryophyllene scheme and (Jenkin et al., ;
+* Atmos. Chem. Phys., 15, 11433, 2015), for the isoprene scheme.   * ;
+********************************************************************* ;
+Output file for Fortran Subset Extractor
+
+
+***********************************************************************
+Species present in subset
+1 	  
+2 	 HCHO 
+3 	 CH3NO3 
+4 	 CH3OH 
+5 	 O1D 
+6 	 O3 
+7 	 HO2NO2 
+8 	 NO3 
+9 	 N2O5 
+10 	 H2O2 
+11 	 NO 
+12 	 NA 
+13 	 HO2 
+14 	 NO2 
+15 	 CH4 
+16 	 HSO3 
+17 	 CO 
+18 	 CL 
+19 	 O 
+20 	 HNO3 
+21 	 SO3 
+22 	 SO2 
+23 	 CH3O 
+24 	 OH 
+25 	 H2 
+26 	 HONO 
+27 	 CH3O2NO2 
+28 	 CH3OOH 
+29 	 SA 
+30 	 CH3O2 
+
+***********************************************************************
+
+
+ Rate expressions fortran routine
+
+subroutine constants(p,t,y)  
+implicit none  
+!     calculates rate constants from arrhenius informtion 
+integer    mnsp,mre
+parameter (mnsp = 3487,mre=20000)
+double precision:: ro2 , kro2no3, temp, p(mre),t
+double precision:: hmix, area, gn2o5, gho2, gch3o2, goh,ghno3, gh2o2, gch3oh, gno3
+double precision:: m, o2, n2, h2o, k0, ki, fc, f, k1, k2, k3, k4, kmt01, kmt02 
+double precision:: kmt03, kmt04, kmt05, kmt06, kmt07, kmt08, kmt09,kmt10,kmt11 
+double precision:: kmt12, kmt13, kmt14, kmt15, kmt16, kmt17, kfpan, kbpan 
+double precision:: fcc,krc,fcd,krd,fc2,fc1,fc3,fc4,fc5,kr1,kr2,kr3,kr4
+double precision:: fc7,fc8,fc9,fc10,fc13,fc14,kr7,kr8,kr9,kr10,kr13,kr14
+double precision:: kc0, kci,kd0,kdi,fd,k10,k1i,f1,k20,k2i,f2,k30,k3i,f3
+double precision:: k40,k4i,f4,k70,k7i,f7,ck80,ck8i,ckr8,cfc8,k80,k8i,f8
+double precision:: k90,k9i,f9,k100,k10i,f10,k130,k13i,f13,k140,k14i,f14
+double precision:: k160,k16i,kr16,fc16,f16, ssign,x
+double precision:: y(mnsp)
+open(13,file='photolysis.txt', status='old')    
+!  calculate zenith angle and temperature for time of day
+
+call zenith(theta, secx, cosx, t)
+
+call temperature(temp, h2o, t)
+
+! ***************************************************************************
+!    define ro2 concentration by adding up concentrations of all 
+!    contributing species. 
+! ***************************************************************************
+
+ro2 = 0.0d+0
+
+
+	 ro2=ro2+y(30) 
+
+c 	 WARNING: The following species do not have SMILES strings in the database.
+c 	 If any of these are peroxy radicals the RO2 sum will be wrong. 
+c	  = y(1) 
+! ***************************************************************************
+m=2.55e+19
+o2=0.2095*m 
+
+***********************************************************************
+c 	 Generic Rate Coefficients 
+
+***********************************************************************
+	KRO2NO = 2.7D-12*EXP(360/TEMP)
+	KRO2HO2 = 2.91D-13*EXP(1300/TEMP)
+	KAPHO2 = 5.2D-13*EXP(980/TEMP)
+	KAPNO = 7.5D-12*EXP(290/TEMP)
+	KRO2NO3 = 2.3D-12
+	KNO3AL = 1.4D-12*EXP(-1860/TEMP)
+	KDEC = 1.00D+06
+	KROPRIM = 2.50D-14*EXP(-300/TEMP)
+	KROSEC = 2.50D-14*EXP(-300/TEMP)
+	KCH3O2 = 1.03D-13*EXP(365/TEMP)
+	K298CH3O2 = 3.5D-13
+	K14ISOM1 = 3.00D7*EXP(-5300/TEMP)
+
+***********************************************************************
+c 	  Complex reactions 
+
+***********************************************************************
+	KD0 = 1.10D-05*M*EXP(-10100/TEMP)
+	KDI = 1.90D17*EXP(-14100/TEMP)
+	KRD = KD0/KDI
+	FCD = 0.30
+	NCD = 0.75-1.27*(LOG10(FCD))
+	FD = 10**(LOG10(FCD)/(1+(LOG10(KRD)/NCD)**2))
+	KBPAN = (KD0*KDI)*FD/(KD0+KDI)
+	KC0 = 3.28D-28*M*(TEMP/300)**-6.87
+	KCI = 1.125D-11*(TEMP/300)**-1.105
+	KRC = KC0/KCI
+	FCC = 0.30
+	NC = 0.75-1.27*(LOG10(FCC))
+	FC = 10**(LOG10(FCC)/(1+(LOG10(KRC)/NC)**2))
+	KFPAN = (KC0*KCI)*FC/(KC0+KCI)
+	K10 = 1.0D-31*M*(TEMP/300)**-1.6
+	K1I = 5.0D-11*(TEMP/300)**-0.3
+	KR1 = K10/K1I
+	FC1 = 0.85
+	NC1 = 0.75-1.27*(LOG10(FC1))
+	F1 = 10**(LOG10(FC1)/(1+(LOG10(KR1)/NC1)**2))
+	KMT01 = (K10*K1I)*F1/(K10+K1I)
+	K20 = 1.3D-31*M*(TEMP/300)**-1.5
+	K2I = 2.3D-11*(TEMP/300)**0.24
+	KR2 = K20/K2I
+	FC2 = 0.6
+	NC2 = 0.75-1.27*(LOG10(FC2))
+	F2 = 10**(LOG10(FC2)/(1+(LOG10(KR2)/NC2)**2))
+	KMT02 = (K20*K2I)*F2/(K20+K2I)
+	K30 = 3.6D-30*M*(TEMP/300)**-4.1
+	K3I = 1.9D-12*(TEMP/300)**0.2
+	KR3 = K30/K3I
+	FC3 = 0.35
+	NC3 = 0.75-1.27*(LOG10(FC3))
+	F3 = 10**(LOG10(FC3)/(1+(LOG10(KR3)/NC3)**2))
+	KMT03 = (K30*K3I)*F3/(K30+K3I)
+	K40 = 1.3D-3*M*(TEMP/300)**-3.5*EXP(-11000/TEMP)
+	K4I = 9.7D+14*(TEMP/300)**0.1*EXP(-11080/TEMP)
+	KR4 = K40/K4I
+	FC4 = 0.35
+	NC4 = 0.75-1.27*(LOG10(FC4))
+	F4 = 10**(LOG10(FC4)/(1+(LOG10(KR4)/NC4)**2))
+	KMT04 = (K40*K4I)*F4/(K40+K4I)
+	KMT05 = 1.44D-13*(1+(M/4.2D+19))
+	KMT06 = 1 + (1.40D-21*EXP(2200/TEMP)*H2O)
+	K70 = 7.4D-31*M*(TEMP/300)**-2.4
+	K7I = 3.3D-11*(TEMP/300)**-0.3
+	KR7 = K70/K7I
+	FC7 = 0.81
+	NC7 = 0.75-1.27*(LOG10(FC7))
+	F7 = 10**(LOG10(FC7)/(1+(LOG10(KR7)/NC7)**2))
+	KMT07 = (K70*K7I)*F7/(K70+K7I)
+	K80 = 3.2D-30*M*(TEMP/300)**-4.5
+	K8I = 3.0D-11
+	KR8 = K80/K8I
+	FC8 = 0.41
+	NC8 = 0.75-1.27*(LOG10(FC8))
+	F8 = 10**(LOG10(FC8)/(1+(LOG10(KR8)/NC8)**2))
+	KMT08 = (K80*K8I)*F8/(K80+K8I)
+	K90 = 1.4D-31*M*(TEMP/300)**-3.1
+	K9I = 4.0D-12
+	KR9 = K90/K9I
+	FC9 = 0.4
+	NC9 = 0.75-1.27*(LOG10(FC9))
+	F9 = 10**(LOG10(FC9)/(1+(LOG10(KR9)/NC9)**2))
+	KMT09 = (K90*K9I)*F9/(K90+K9I)
+	K100 = 4.10D-05*M*EXP(-10650/TEMP)
+	K10I = 6.0D+15*EXP(-11170/TEMP)
+	KR10 = K100/K10I
+	FC10 = 0.4
+	NC10 = 0.75-1.27*(LOG10(FC10))
+	F10 = 10**(LOG10(FC10)/(1+(LOG10(KR10)/NC10)**2))
+	KMT10 = (K100*K10I)*F10/(K100+K10I)
+	K1 = 2.40D-14*EXP(460/TEMP)
+	K3 = 6.50D-34*EXP(1335/TEMP)
+	K4 = 2.70D-17*EXP(2199/TEMP)
+	K2 = (K3*M)/(1+(K3*M/K4))
+	KMT11 = K1 + K2
+	K120 = 2.5D-31*M*(TEMP/300)**-2.6
+	K12I = 2.0D-12
+	KR12 = K120/K12I
+	FC12 = 0.53
+	NC12 = 0.75-1.27*(LOG10(FC12))
+	F12 = 10**(LOG10(FC12)/(1.0+(LOG10(KR12)/NC12)**2))
+	KMT12 = (K120*K12I*F12)/(K120+K12I)
+	K130 = 2.5D-30*M*(TEMP/300)**-5.5
+	K13I = 1.8D-11
+	KR13 = K130/K13I
+	FC13 = 0.36
+	NC13 = 0.75-1.27*(LOG10(FC13))
+	F13 = 10**(LOG10(FC13)/(1+(LOG10(KR13)/NC13)**2))
+	KMT13 = (K130*K13I)*F13/(K130+K13I)
+	K140 = 9.0D-5*EXP(-9690/TEMP)*M
+	K14I = 1.1D+16*EXP(-10560/TEMP)
+	KR14 = K140/K14I
+	FC14 = 0.36
+	NC14 = 0.75-1.27*(LOG10(FC14))
+	F14 = 10**(LOG10(FC14)/(1+(LOG10(KR14)/NC14)**2))
+	KMT14 = (K140*K14I)*F14/(K140+K14I)
+	K150 = 8.6D-29*M*(TEMP/300)**-3.1
+	K15I = 9.0D-12*(TEMP/300)**-0.85
+	KR15 = K150/K15I
+	FC15 = 0.48
+	NC15 = 0.75-1.27*(LOG10(FC15))
+	F15 = 10**(LOG10(FC15)/(1+(LOG10(KR15)/NC15)**2))
+	KMT15 = (K150*K15I)*F15/(K150+K15I)
+	K160 = 8D-27*M*(TEMP/300)**-3.5
+	K16I = 3.0D-11*(TEMP/300)**-1
+	KR16 = K160/K16I
+	FC16 = 0.5
+	NC16 = 0.75-1.27*(LOG10(FC16))
+	F16 = 10**(LOG10(FC16)/(1+(LOG10(KR16)/NC16)**2))
+	KMT16 = (K160*K16I)*F16/(K160+K16I)
+	K170 = 5.0D-30*M*(TEMP/300)**-1.5
+	K17I = 1.0D-12
+	KR17 = K170/K17I
+	FC17 = 0.17*EXP(-51/TEMP)+EXP(-TEMP/204)
+	NC17 = 0.75-1.27*(LOG10(FC17))
+	F17 = 10**(LOG10(FC17)/(1.0+(LOG10(KR17)/NC17)**2))
+	KMT17 = (K170*K17I*F17)/(K170+K17I)
+	KMT18 = 9.5D-39*O2*EXP(5270/TEMP)/(1+7.5D-29*O2*EXP(5610/TEMP))
+	KPPN0 = 1.7D-03*EXP(-11280/TEMP)*M
+	KPPNI = 8.3D+16*EXP(-13940/TEMP)
+	KRPPN = KPPN0/KPPNI
+	FCPPN = 0.36
+	NCPPN = 0.75-1.27*(LOG10(FCPPN))
+	FPPN = 10**(LOG10(FCPPN)/(1+(LOG10(KRPPN)/NCPPN)**2))
+	KBPPN = (KPPN0*KPPNI)*FCPPN/(KPPN0+KPPNI)
+
+***********************************************************************
+! ***************************************************************************
+
+!    define photolysis reaction rates using derwent method from mcm2box.fac
+
+! ***************************************************************************
+rewind(13)
+read(13,*) 
+do i = 1, 35
+	read(13,*) k, l(k), mm(k), nn(k) 
+	if (cosx.lt.1.00d-10) then
+		j(k) = 1.0d-30
+	else
+		j(k) = l(k)*cosx**( mm(k))*dexp(-nn(k)*secx) 
+	endif
+enddo
+
+	p(1)= 5.6D-34*N2*(TEMP/300)**-2.6*O2
+	p(2)= 6.0D-34*O2*(TEMP/300)**-2.6*O2
+	p(3)= 8.0D-12*EXP(-2060/TEMP)
+	p(4)= KMT01
+	p(5)= 5.5D-12*EXP(188/TEMP)
+	p(6)= KMT02
+	p(7)= 3.2D-11*EXP(67/TEMP)*O2
+	p(8)= 2.0D-11*EXP(130/TEMP)*N2
+	p(9)= 1.4D-12*EXP(-1310/TEMP)
+	p(10)= 1.4D-13*EXP(-2470/TEMP)
+	p(11)= 3.3D-39*EXP(530/TEMP)*O2
+	p(12)= 1.8D-11*EXP(110/TEMP)
+	p(13)= 4.50D-14*EXP(-1260/TEMP)
+	p(14)= KMT03
+	p(15)= 2.14D-10*H2O
+	p(16)= 1.70D-12*EXP(-940/TEMP)
+	p(17)= 7.7D-12*EXP(-2100/TEMP)
+	p(18)= KMT05
+	p(19)= 2.9D-12*EXP(-160/TEMP)
+	p(20)= 2.03D-16*(TEMP/300)**4.57*EXP(693/TEMP)
+	p(21)= 4.8D-11*EXP(250/TEMP)
+	p(22)= 2.20D-13*KMT06*EXP(600/TEMP)
+	p(23)= 1.90D-33*M*KMT06*EXP(980/TEMP)
+	p(24)= KMT07
+	p(25)= KMT08
+	p(26)= 2.0D-11
+	p(27)= 3.45D-12*EXP(270/TEMP)
+	p(28)= KMT09
+	p(29)= 3.2D-13*EXP(690/TEMP)*1.0
+	p(30)= 4.0D-12
+	p(31)= 2.5D-12*EXP(260/TEMP)
+	p(32)= KMT11
+	p(33)= 4.0D-32*EXP(-1000/TEMP)*M
+	p(34)= KMT12
+	p(35)= 1.3D-12*EXP(-330/TEMP)*O2
+	p(36)= 6.00D-06
+	p(37)= 4.00D-04
+	p(38)= 1.20D-15*H2O
+	p(39)= J(1)
+	p(40)= J(2)
+	p(41)= J(3)
+	p(42)= J(4)
+	p(43)= J(5)
+	p(44)= J(6)
+	p(45)= J(7)
+	p(46)= J(8)
+	p(47)= KMT04
+	p(48)= KMT10
+	p(49)= 6.6D-12*EXP(-1240/TEMP)
+	p(50)= 1.85D-12*EXP(-1690/TEMP)
+	p(51)= 3.8D-13*EXP(780/TEMP)*(1-1/(1+498*EXP(-1160/TEMP)))
+	p(52)= 3.8D-13*EXP(780/TEMP)*(1/(1+498*EXP(-1160/TEMP)))
+	p(53)= 2.3D-12*EXP(360/TEMP)*0.001
+	p(54)= 2.3D-12*EXP(360/TEMP)*0.999
+	p(55)= KMT13
+	p(56)= 1.2D-12
+	p(57)= 2*KCH3O2*RO2*7.18*EXP(-885/TEMP)
+	p(58)= 2*KCH3O2*RO2*0.5*(1-7.18*EXP(-885/TEMP))
+	p(59)= 2*KCH3O2*RO2*0.5*(1-7.18*EXP(-885/TEMP))
+	p(60)= J(41)
+	p(61)= 5.3D-12*EXP(190/TEMP)*0.6
+	p(62)= 5.3D-12*EXP(190/TEMP)*0.4
+	p(63)= J(11)
+	p(64)= J(12)
+	p(65)= 5.5D-16
+	p(66)= 5.4D-12*EXP(135/TEMP)
+	p(67)= J(51)
+	p(68)= 4.0D-13*EXP(-845/TEMP)
+	p(69)= 7.2D-14*EXP(-1080/TEMP)*O2
+	p(70)= KMT14
+	p(71)= 2.85D-12*EXP(-345/TEMP)
+	 return 
+ 	 end
+!**************** end of subroutine constants *****************
+
+subroutine zenith(theta, secx, cosx, ttime)
+double precision:: lat,pi,radian,dec,lha,ttime,theta,cosx,secx
+double precision:: sinld,cosld
+! solar declination angle from july 1st - harwell traj model
+dec = 23.79
+! latitude
+lat = 50.0
+pi = 4.0*atan(1.0)
+! local hour angle - representing time of day
+lha = (1.0+ttime/4.32d+4)*pi
+radian = 180.0/pi
+lat = lat/radian
+dec = dec/radian
+theta = acos(cos(lha)*cos(dec)*cos(lat)+sin(dec)*sin(lat))
+sinld = sin(lat)*sin(dec)
+cosld = cos(lat)*cos(dec)
+cosx = (cos(lha)*cosld)+sinld
+cosx = cos(theta)
+secx = 1.0d+0/(cosx+1.0d-30)
+return
+
+end
+
+!**************** end of subroutine zenith *****************
+
+subroutine temperature(temp, h2o, ttime)
+!c subroutine to calculate diurnal variations in temperature
+double precision:: temp,ttime,sin, rh, h2o
+temp = 289.86 + 8.3*sin((7.2722d-5*ttime)-1.9635)
+rh=23.0*sin((7.2722d-5*ttime)+1.1781)+66.5 
+h2o=6.1078*dexp(-1.0d+0*(597.3-0.57*(temp-273.16))*18.0/1.986*(1.0/temp-1.0/273.16))*10./(1.38d-16*temp)*rh 
+return
+end
+!**************** end of subroutine temperature *************
+
+
+***********************************************************************
+
+
+ photolysis.txt, for use when calculating J rate coefficients in constants.f 
+
+      J          L           M          N
+      1      6.073D-05     1.743       0.474
+      2      4.775D-04     0.298       0.080
+      3      1.041D-05     0.723       0.279
+      4      1.165D-02     0.244       0.267
+      5      2.485D-02     0.168       0.108
+      6      1.747D-01     0.155      0.125
+      7      2.644D-03     0.261      0.288
+      8      9.312D-07     1.230      0.307
+     11      4.642D-05     0.762       0.353
+     12      6.853D-05     0.477       0.323
+     13      7.344D-06     1.202       0.417
+     14      2.879D-05     1.067       0.358
+     15      2.792D-05     0.805       0.338
+     16      1.675D-05     0.805       0.338
+     17      7.914D-05     0.764      0.364
+     18      1.482D-06     0.396       0.298
+     19      1.482D-06     0.396      0.298
+     20      7.600D-04     0.396      0.298
+     21      7.992D-07     1.578       0.271
+     22      5.804D-06     1.092      0.377
+     23      2.424D-06     0.395      0.296
+     24      2.424D-06     0.395      0.296
+     31      6.845D-05     0.130      0.201
+     32      1.032D-05     0.130      0.201
+     33      3.802D-05     0.644       0.312
+     34      1.537D-04     0.170       0.208
+     35      3.326D-04     0.148      0.215
+     41      7.649D-06     0.682       0.279
+     51      1.588D-06     1.154      0.318
+     52      1.907D-06     1.244      0.335
+     53      2.485D-06     1.196      0.328
+     54      4.095D-06     1.111       0.316
+     55      1.135D-05     0.974      0.309
+     56      4.365D-05     1.089      0.323
+ 
+
+***********************************************************************
+
+
+ Fortran routine for calculation of rhs of rate equations
+
+subroutine rate_routine(neqn,t,y,isa,nisa,isb,nisb)
+!     routine to calculate right hand sides of rate equations
+!
+!	neqn		- [i] number of species/ rate equations
+!	t		- [i] current timepoint
+!	y		- [i] array of species concentrations
+!	isa(m,n)	- [i] array holding reactant data m=reaction number, n=species number
+!	nisa		- [i] size of isa
+!	isb(m,n)	- [i] array holding product data m=reaction number, n=species number
+!	nisb		- [i] size of isb
+	
+parameter mnsp=4000, mre=12000                   
+double precision:: y(mnsp),dy(mnsp) 
+double precision:: p(mre),r(mre),dy(mnsp)                                  
+integer:: i,nsp,nr,isa(2,20000),isb(2,20000)
+!	constants is the routine in which the values of the rate coefficients are calculated
+external constants
+
+do i = 1,nspecies
+	dy(i) = 0.0d+0   
+enddo             
+ 
+call constants(p,t,y)  
+                                       
+do k = 1,nr                                                    
+	r(k) = p(k) 
+enddo	                                                      
+
+! evaluate the RHS of each rate equation stored in dy()
+do is = 1,nisa     
+	r(isa(1,is)) = r(isa(1,is))*y(isa(2,is))
+enddo
+ 
+do is = 1,nisa
+	dy(isa(2,is)) = dy(isa(2,is))- r(isa(1,is)
+enddo
+
+***********************************************************************
+
+
+ Subset reactants file - reaction number, species number 
+30	71	 number of species, number of reactions
+1 	 19 
+2 	 19 
+3 	 19 
+3 	 6 
+4 	 19 
+4 	 11 
+5 	 19 
+5 	 14 
+6 	 19 
+6 	 14 
+7 	 5 
+8 	 5 
+9 	 11 
+9 	 6 
+10 	 14 
+10 	 6 
+11 	 11 
+11 	 11 
+12 	 11 
+12 	 8 
+13 	 14 
+13 	 8 
+14 	 14 
+14 	 8 
+15 	 5 
+16 	 24 
+16 	 6 
+17 	 24 
+17 	 25 
+18 	 24 
+18 	 17 
+19 	 24 
+19 	 10 
+20 	 13 
+20 	 6 
+21 	 24 
+21 	 13 
+22 	 13 
+22 	 13 
+23 	 13 
+23 	 13 
+24 	 24 
+24 	 11 
+25 	 24 
+25 	 14 
+26 	 24 
+26 	 8 
+27 	 13 
+27 	 11 
+28 	 13 
+28 	 14 
+29 	 24 
+29 	 7 
+30 	 13 
+30 	 8 
+31 	 24 
+31 	 26 
+32 	 24 
+32 	 20 
+33 	 19 
+33 	 22 
+34 	 24 
+34 	 22 
+35 	 16 
+36 	 20 
+37 	 9 
+38 	 21 
+39 	 6 
+40 	 6 
+41 	 10 
+42 	 14 
+43 	 8 
+44 	 8 
+45 	 26 
+46 	 20 
+47 	 9 
+48 	 7 
+49 	 18 
+49 	 15 
+50 	 24 
+50 	 15 
+51 	 30 
+51 	 13 
+52 	 30 
+52 	 13 
+53 	 30 
+53 	 11 
+54 	 30 
+54 	 11 
+55 	 30 
+55 	 14 
+56 	 30 
+56 	 8 
+57 	 30 
+58 	 30 
+59 	 30 
+60 	 28 
+61 	 24 
+61 	 28 
+62 	 24 
+62 	 28 
+63 	 2 
+64 	 2 
+65 	 8 
+65 	 2 
+66 	 24 
+66 	 2 
+67 	 3 
+68 	 24 
+68 	 3 
+69 	 23 
+70 	 27 
+71 	 4 
+71 	 24 
+
+***********************************************************************
+
+
+ Subset products file - reaction number, species number 
+1 	 6 
+2 	 6 
+3 	 1 
+4 	 14 
+5 	 11 
+6 	 8 
+7 	 19 
+8 	 19 
+9 	 14 
+10 	 8 
+11 	 14 
+11 	 14 
+12 	 14 
+12 	 14 
+13 	 11 
+13 	 14 
+14 	 9 
+15 	 24 
+15 	 24 
+16 	 13 
+17 	 13 
+18 	 13 
+19 	 13 
+20 	 24 
+21 	 1 
+22 	 10 
+23 	 10 
+24 	 26 
+25 	 20 
+26 	 13 
+26 	 14 
+27 	 24 
+27 	 14 
+28 	 7 
+29 	 14 
+30 	 24 
+30 	 14 
+31 	 14 
+32 	 8 
+33 	 21 
+34 	 16 
+35 	 13 
+35 	 21 
+36 	 12 
+37 	 12 
+37 	 12 
+38 	 29 
+39 	 5 
+40 	 19 
+41 	 24 
+41 	 24 
+42 	 11 
+42 	 19 
+43 	 11 
+44 	 14 
+44 	 19 
+45 	 24 
+45 	 11 
+46 	 24 
+46 	 14 
+47 	 14 
+47 	 8 
+48 	 13 
+48 	 14 
+49 	 30 
+50 	 30 
+51 	 28 
+52 	 2 
+53 	 3 
+54 	 23 
+54 	 14 
+55 	 27 
+56 	 23 
+56 	 14 
+57 	 23 
+58 	 4 
+59 	 2 
+60 	 23 
+60 	 24 
+61 	 30 
+62 	 2 
+62 	 24 
+63 	 17 
+63 	 13 
+63 	 13 
+64 	 25 
+64 	 17 
+65 	 20 
+65 	 17 
+65 	 13 
+66 	 13 
+66 	 17 
+67 	 23 
+67 	 14 
+68 	 2 
+68 	 14 
+69 	 2 
+69 	 13 
+70 	 30 
+70 	 14 
+71 	 13 
+71 	 2 
+
+***********************************************************************
+

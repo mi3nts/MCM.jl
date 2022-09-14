@@ -27,5 +27,12 @@ sim = SimulationConfig("test.txt",
                         95.3*u"°",
                         )
 
+
 println(sim)
 println(sim.temp)
+
+
+test_path = "../data/MCM_APINENE.eqn.txt"
+
+rxns, species = parse_mechanism(test_path)
+println(rxns[1])

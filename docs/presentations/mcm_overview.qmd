@@ -1,0 +1,109 @@
+---
+title: "Master Chemical Mechanism"
+author: "John Waczak"
+date: "08-23-2022"
+format: revealjs
+---
+
+
+## What is a chemical mechanism? 
+
+From a mathematicla perspective, simply a set of coupled odes: 
+
+\begin{equation} 
+    \dot{\vec{y}} = f(\vec{y}, t) \qquad \vec{y}(t_0) := \vec{y}_0
+\end{equation}
+
+- $\vec{y}$ vector of chemical concentrations 
+- $t$ time 
+- $\vec{y}_0$ vector of initial concentrations
+
+--- 
+
+These equations can be written abstractly as 
+
+\begin{equation} 
+    \alpha_1 R_1 + \alpha_2 R_2 + ... \alpha_m R_m \longrightarrow \beta_1 P_1 + \beta_2 P_2 + ... + \beta_n P_n
+\end{equation}
+
+- $R_i$ are reactants 
+- $P_j$ are products 
+- $\alpha_i, \beta_j$ are stoichiometric coefficients 
+
+--- 
+
+This abstract notation is then converted into the differential equations via the translation 
+
+\begin{equation}
+    \dfrac{d[X_j]}{dt} = k \prod_i [X_i]^{\alpha_i}
+\end{equation}
+
+- $[X]$ denotes concentration of species $X$. 
+- $k$ is the reaction rate coefficient. 
+- $\alpha_i$ are the stoichiometric coefficients of each reactant 
+
+---
+
+*NOTE:* The reaction coefficient $k$ depends on the thermodynamic state of the system. 
+
+A simple model for this is the Arrhenius equation 
+
+\begin{equation}
+    k(T) = Ae^{-E_a/(RT)}
+\end{equation}
+
+- $E_a$ is the activation energy (i.e. minimum energy required for the reaction)
+- $T$ is the temperature 
+- $R$ is the gas constant
+
+## Master chemical mechanism 
+
+*"The Master Chemical Mechanism (MCM) is a near-explicit chemical mechanism which describes the detailed gas-phase chemical processes involved in the tropospheric degradation of a series of primary emitted volatile organic compounds (VOCs). Currently, the degradation of methane and 142 non-methane VOCs is represented."*
+
+
+In simpler terms, the MCM is a collection of *many* reactions as well as a definition for their corresponding reaction rates. 
+
+
+## Implementation
+
+The full mechanism is provided in a simple format for ingestion: 
+
+![](mcm_screenshot.png)
+
+---
+
+The authors simulate the mechanism (i.e. solve the diffeq's) with a fortran code called *AtChem*. This consists of the following components 
+
+- **Configuration Layer**: model constraints, input / output variables, model & solver paramters 
+- **Processing Layer**: conversion of mechanism to FORTRAN, sum of peroxy radicals ($\sum RO_2$), parametrization of photolysis rates
+- **Logic Layer**: conversion of mechanism + configuration into ODE system + Boundary Conditions
+- **Mathematical Layer**: Interpolation of constrained variables, integration of ODEs
+
+--- 
+
+Environemental Variables for the simulation inlcude: 
+
+- temperature 
+- pressure 
+- solar angles (declination, azimuth)
+- $H_2O$ 
+- JFAC (scaling FACtor for photolysis rates $j_i$)
+
+## Photolysis Rates 
+
+Photolysis rates for the MCM are determined according to 
+
+\begin{equation}
+    j = \ell (\cos(\text{SZA}))^m e^{-(n\cdot \sec(\text{SZA}))}\tau
+\end{equation}
+
+- $\ell, m, n$ are empirical parameters (see Jenkin 1997) 
+- $\text{SZA}$ is the solar zenith angle 
+- $\tau$ is the transmission factor 
+
+--- 
+
+- $\ell, m, n$ are obtained by fitting the $j$ equation to a 2-stream isotropic scattering model. This incorporates photolysis, cross-sections, and quantum yield. 
+- $\tau$ is used to account for natural/artificial light sources 
+- $\text{SZA}$ is determined from solar declination, lat, lon, day of year, and time of day (Madronich 1993) 
+- $\text{JFAC}= \dfrac{j_{\text{meas}}}{j_{\text{calc}}}$

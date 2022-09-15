@@ -16,6 +16,7 @@ SolarGeometry = "4c2ee4bc-ae8c-4f43-b820-7df96744ebfe"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
+SolarGeometry = "0.1"
 julia = "1.7"
 
 [extras]
